@@ -53,59 +53,59 @@ def get_best_matching_orders(order, i):
         # on consecutive calls of best_matching, just return the 20 latest 
         return best_matching if i == 0 else best_matching[20:]
 
-    def fill_orders(best_matching):
-        filled = order.units
-        finished_iteration = False
-        # Design Decision: update orders on partial fills for each loop iteration or commit a single transactions containing 
-        # all the fills at the end of the loop? Choosing partial fills because or else big orders may be hard to fill.
-        for bid in best_matching:
-            filled_orders = filled
-            filled = filled - bid.units if filled - bid.units > 0 else 0
-            bid.units = bid.units - filled_orders if bid.units - filled_orders > 0 else 0
-            if bid.units == 0:
+def fill_order(best_matching, order):
+    filled = order.units
+    finished_iteration = False
+    # Design Decision: update orders on partial fills for each loop iteration or commit a single transactions containing 
+    # all the fills at the end of the loop? Choosing partial fills because or else big orders may be hard to fill.
+    for bid in best_matching:
+        filled_orders = filled
+        filled = filled - bid.units if filled - bid.units > 0 else 0
+        bid.units = bid.units - filled_orders if bid.units - filled_orders > 0 else 0
+        if bid.units == 0:
+            # conditionExpressions checks that the item we are looking at is the most recent version
+            # prevents race condition
+            res = ddb_client.delete_item(
+                Key = {
+                    "Pk" : {
+                        "S" : bid.order_id
+                    },
+                    "Sk" : {
+                        "N" : str(bid.price)
+                    }
+                },
+                TableName="LimitOrderBookTest",
+                ConditionExpression="order_time = :order_time",
+                ExpressionAttributeValues={
+                    ":order_time" : {
+                        "N" : bid.order_time
+                    }
+                }
+            )   
+            print("deleted: {}".format(res))
+
+        elif bid.units > 0:
+            # update item from partial fill
+            res = ddb_client.put_item(
+                Item = bid.to_ddb_item(),
+                TableName="LimitOrderBookTest",
                 # conditionExpressions checks that the item we are looking at is the most recent version
                 # prevents race condition
-                res = ddb_client.delete_item(
-                    Key = {
-                        "Pk" : {
-                            "S" : bid.order_id
-                        },
-                        "Sk" : {
-                            "N" : str(bid.price)
-                        }
-                    },
-                    TableName="LimitOrderBookTest",
-                    ConditionExpression="order_time = :order_time",
-                    ExpressionAttributeValues={
-                        ":order_time" : {
-                            "N" : bid.order_time
-                        }
+                ConditionExpression="order_time = :order_time",
+                ExpressionAttributeValues={
+                    ":order_time" : {
+                        "N" : bid.order_time
                     }
-                )   
-                print("deleted: {}".format(res))
-
-            elif bid.units > 0:
-                # update item from partial fill
-                res = ddb_client.put_item(
-                    Item = bid.to_ddb_item(),
-                    TableName="LimitOrderBookTest",
-                    # conditionExpressions checks that the item we are looking at is the most recent version
-                    # prevents race condition
-                    ConditionExpression="order_time = :order_time",
-                    ExpressionAttributeValues={
-                        ":order_time" : {
-                            "N" : bid.order_time
-                        }
-                    }
-                )   
-            if filled == 0:
-                break
-        order.units = order.units - filled
-        if order.units > 0:
-            ddb_client.put_item(
-                Item = order.to_ddb_item(),
-                TableName="LimitOrderBookTest"
-            )
+                }
+            )   
+        if filled == 0:
+            break
+    order.units = order.units - filled
+    if order.units > 0:
+        ddb_client.put_item(
+            Item = order.to_ddb_item(),
+            TableName="LimitOrderBookTest"
+        )
 
 def delete_table():
     items = ddb_client.scan(
@@ -126,8 +126,19 @@ def delete_table():
             TableName="LimitOrderBookTest"
         )
 
-delete_table()
+def scan_table():
+    items = ddb_client.scan(
+        TableName="LimitOrderBookTest",
+        Select="ALL_ATTRIBUTES"
+    )["Items"]
+    for item in items:
+        print(item)
+
+
 # populate_table()
+# delete_table()
+scan_table()
+
 # order = {
 #     "user_id": "user1",
 #     "stock_symbol": "AAPL",

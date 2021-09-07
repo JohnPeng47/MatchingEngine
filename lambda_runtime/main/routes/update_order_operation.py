@@ -1,5 +1,6 @@
 from lambda_runtime.main.data_model.order import Order
 from botocore.exceptions import ClientError
+from lambda_runtime.main.routes.create_order_operation import match_order
 
 import json
 
@@ -44,11 +45,6 @@ def updateOrderOperation(event):
             },
             TableName="LimitOrderBookTest"
         )
-        ddb_conn.put_item(
-            Item = order.to_ddb_item(),
-            TableName="LimitOrderBookTest"
-        )
-
     except ClientError as e:
         print(e)
         if e.response['Error']['Code'] != 'ConditionalCheckFailedException':
@@ -57,7 +53,5 @@ def updateOrderOperation(event):
                 "body": "Cannot update partially filled order"
             }
 
-    return {
-        "statusCode": 200,
-        "body":  "Order successfully updated"
-    }
+    res = match_order(ddb_conn, order)
+    return res

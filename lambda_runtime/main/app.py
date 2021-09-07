@@ -16,22 +16,17 @@ PATH_TO_FUNCTION = {
     "delete": deleteOrderOperation
 }
 
-# logger = logging.getLogger()
-# logger.setLevel(logging.INFO)
 def lambda_handler(event, context):
     # no error catching here, assume that APIGW has completed input validation
     event["body"] = json.loads(event["body"])
     event["client"] = db_client
-    # event["order"] = json.loads(event["order"])
     operation = event["body"]["operation"]
     print("calling operation {}".format(operation))
-    
+
+    # TODO: add error handling here
     func = PATH_TO_FUNCTION.get(operation, None)
     # if authz_layer(userRole, path, userEmail): TODO: implement authorization layer here
     results = call_function(event, func)
-    statusCode = 500
-    error_message = f"Path {operation} does not exist"
-
     return results
 
 def call_function(event, func):
