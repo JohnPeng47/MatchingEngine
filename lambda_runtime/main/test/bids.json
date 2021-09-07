@@ -1,0 +1,28 @@
+[{
+    "user_id": "user1",
+    "stock_symbol": "AAPL",
+    "order_type" : "BUY",
+    "units": 24,
+    "price": 102.55
+},
+{
+    "user_id": "user1",
+    "stock_symbol": "AAPL",
+    "order_type" : "BUY",
+    "units": 14,
+    "price": 102.55
+},
+{
+    "user_id": "user1",
+    "stock_symbol": "AAPL",
+    "order_type" : "BUY",
+    "units": 131,
+    "price": 102.54
+},
+{
+    "user_id": "user1",
+    "stock_symbol": "AAPL",
+    "order_type" : "BUY",
+    "units": 32,
+    "price": 101.87
+}]

@@ -1,0 +1,192 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: MatchingEngine
+Resources:
+  MainHandlerExecutePermissions:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref MainLambdaHandler
+      Principal: "apigateway.amazonaws.com"
+      SourceArn: !Join ["", [!Join [ ":", [ "arn:aws:execute-api",!Ref 'AWS::Region',!Ref 'AWS::AccountId',!Ref MatchingEngineAPI]], "/*"]]
+  
+  MatchingEngineAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+        StageName: demo
+        DefinitionBody:
+            swagger: "2.0"
+            info:
+              version: "2017-04-26T03:23:48Z"
+              title: "MatchingEngineGateway"
+            basePath: "/"
+            schemes:
+            - "https"
+            paths:
+              /match_engine:
+                post:
+                  consumes:
+                  - "application/json"
+                  produces:
+                  - "application/json"
+                  responses:
+                    "200":
+                      description: "200 response"
+                      schema:
+                        $ref: "#/definitions/Empty"
+                      headers:
+                        Access-Control-Allow-Origin:
+                          type: "string"
+                  security:
+                  - sigv4: []
+                  x-amazon-apigateway-integration:
+                    responses:
+                      default:
+                        statusCode: "200"
+                        responseParameters:
+                          method.response.header.Access-Control-Allow-Origin: "'*'"
+                    uri: 
+                      Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MainLambdaHandler.Arn}/invocations
+                    passthroughBehavior: "when_no_templates"
+                    httpMethod: "POST"
+                    contentHandling: "CONVERT_TO_TEXT"
+                    type: "aws"
+  
+  MainLambdaHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: 'lambda_runtime/main/app.lambda_handler'
+      Runtime: python3.7
+      CodeUri:  '../build/main.zip'
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /match_engine
+            Method: POST
+
+  # supports two main operations:
+  # 1. getting the best bids/asks, sorted by the price (GSI: Stock_Bid/Ask, SI: price)
+  # This operation utilizes GSI because Gsi does not strongly consistent gurantees, which is fine since we only need strong consistency before
+  # issuing an update/delete
+  # 2. getting one particular order, specified by orderid as Pk. Operation is constant lookup, since each order is mapped to a unique partition
+  LimitOrderBook:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: LimitOrderBook
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      AttributeDefinitions:
+        - AttributeName: Pk
+          AttributeType: S
+        - AttributeName: Sk
+          AttributeType: N
+        - AttributeName: Gsi1Pk
+          AttributeType: S
+        - AttributeName: SiSk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Pk
+          KeyType: HASH
+        - AttributeName: Sk
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: BestMatchingOffers
+          KeySchema:
+            - AttributeName: Gsi1Pk
+              KeyType: HASH
+            - AttributeName: Sk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      LocalSecondaryIndexes:
+        - IndexName: OrderIdUserIdQuery
+          KeySchema:
+          - AttributeName: Pk
+            KeyType: HASH
+          - AttributeName: SiSk
+            KeyType: RANGE
+
+  TransactionTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: TransactionTable
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      AttributeDefinitions:
+        - AttributeName: Pk
+          AttributeType: S
+        - AttributeName: Sk
+          AttributeType: N
+      KeySchema:
+        - AttributeName: Pk
+          KeyType: HASH
+        - AttributeName: Sk
+          KeyType: RANGE
+
+  LimitOrderBookTest:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: LimitOrderBookTest
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      AttributeDefinitions:
+        - AttributeName: Pk
+          AttributeType: S
+        - AttributeName: Sk
+          AttributeType: N
+        - AttributeName: Gsi1Pk
+          AttributeType: S
+        - AttributeName: SiSk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Pk
+          KeyType: HASH
+        - AttributeName: Sk
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: BestMatchingOffers
+          KeySchema:
+            - AttributeName: Gsi1Pk
+              KeyType: HASH
+            - AttributeName: Sk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      LocalSecondaryIndexes:
+        - IndexName: OrderIdUserIdQuery
+          KeySchema:
+          - AttributeName: Pk
+            KeyType: HASH
+          - AttributeName: SiSk
+            KeyType: RANGE
+
+Outputs:
+  ApiUrl:
+    Description: URL 
+    Value: !Join
+      - ''
+      - - https://
+        - !Ref MatchingEngineAPI
+        - '.execute-api.'
+        - !Ref 'AWS::Region'
+        - '.amazonaws.com/demo'
+  RestApiId:
+    Description: API Gateway API ID
+    Value: !Ref MatchingEngineAPI      
+  MainLambdaHandler:
+    Description: Main Handler Function
+    Value: !Ref MainLambdaHandler
