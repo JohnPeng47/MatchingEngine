@@ -1,6 +1,6 @@
 from lambda_runtime.main.data_model.order import Order
 from botocore.exceptions import ClientError
-from lambda_runtime.main.routes.create_order_operation import match_order
+from lambda_runtime.main.routes.create_order_operation import attempt_match_order
 
 import json
 
@@ -22,7 +22,7 @@ def updateOrderOperation(event):
                     "N" : str(old_price)
                 }
             },
-            TableName="LimitOrderBookTest",
+            TableName="LimitOrderBook",
             ConsistentRead=True
         )
         if not item.get("Item", None):
@@ -32,6 +32,7 @@ def updateOrderOperation(event):
             }
 
         print("item" , item["Item"])
+        # create a new order overwrites the old order with updated fields
         order = Order(event["body"]["order"], mode="update", original=item["Item"])
         # Since price is the sort key, need to delete old item before we can update
         ddb_conn.delete_item(
@@ -43,7 +44,7 @@ def updateOrderOperation(event):
                     "N" : str(old_price)
                 }
             },
-            TableName="LimitOrderBookTest"
+            TableName="LimitOrderBook"
         )
     except ClientError as e:
         print(e)
@@ -52,6 +53,6 @@ def updateOrderOperation(event):
                 "statusCode": 403,
                 "body": "Cannot update partially filled order"
             }
-
-    res = match_order(ddb_conn, order)
+    # create new order and try to match
+    res = attempt_match_order(ddb_conn, order)
     return res

@@ -13,20 +13,20 @@ def populate_table():
     asks = json.loads(open("asks.json").read())
     ddb_asks = map(lambda ask: Order(ask), asks)
     for ask in ddb_asks:
-        ddb_client.put_item(TableName="LimitOrderBookTest", 
+        ddb_client.put_item(TableName="LimitOrderBook",
             Item=ask.to_ddb_item())
 
     bids = json.loads(open("bids.json").read())
     ddb_bids = map(lambda bid: Order(bid), bids)
     for bid in ddb_bids:
-        ddb_client.put_item(TableName="LimitOrderBookTest",
+        ddb_client.put_item(TableName="LimitOrderBook",
             Item=bid.to_ddb_item())
 
-# returns best matching orders for the order type. Parameter is used to "paginate" the 
+# returns best matching orders for the order type. Parameter is used to "paginate" the
 def get_best_matching_orders(order, i):
     if order.order_type == "SELL":
         res = ddb_client.query(
-            Limit = 20 + i  * 20, # limit the number of orders to 
+            Limit = 20 + i  * 20, # limit the number of orders to
             ExpressionAttributeValues = {
                 ":price" : {
                     "N" : str(order.price)
@@ -36,12 +36,12 @@ def get_best_matching_orders(order, i):
                 }
             },
             IndexName="BestMatchingOffers",
-            TableName="LimitOrderBookTest",
+            TableName="LimitOrderBook",
             KeyConditionExpression=f"Gsi1Pk = :stockNameAndType AND Sk {'>=' if order.order_type =='SELL' else '<='} :price")
         # if no matching orders found, add full order to limit book
         if not res["Items"]:
             ddb_client.put_item(
-                TableName="LimitOrderBookTest",
+                TableName="LimitOrderBook",
                 Item=order.to_ddb_item()
             )
 
@@ -49,14 +49,14 @@ def get_best_matching_orders(order, i):
         # sort first by price reversed, then by timestamp. This nested sort in python will maintain
         # order of the prices first
         best_matching = sorted(sorted(best_matching, key=lambda x: x.order_time), key=lambda x: x.price, reverse=True if order.order_type =='SELL' else False)
-        
-        # on consecutive calls of best_matching, just return the 20 latest 
+
+        # on consecutive calls of best_matching, just return the 20 latest
         return best_matching if i == 0 else best_matching[20:]
 
 def fill_order(best_matching, order):
     filled = order.units
     finished_iteration = False
-    # Design Decision: update orders on partial fills for each loop iteration or commit a single transactions containing 
+    # Design Decision: update orders on partial fills for each loop iteration or commit a single transactions containing
     # all the fills at the end of the loop? Choosing partial fills because or else big orders may be hard to fill.
     for bid in best_matching:
         filled_orders = filled
@@ -74,21 +74,21 @@ def fill_order(best_matching, order):
                         "N" : str(bid.price)
                     }
                 },
-                TableName="LimitOrderBookTest",
+                TableName="LimitOrderBook",
                 ConditionExpression="order_time = :order_time",
                 ExpressionAttributeValues={
                     ":order_time" : {
                         "N" : bid.order_time
                     }
                 }
-            )   
+            )
             print("deleted: {}".format(res))
 
         elif bid.units > 0:
             # update item from partial fill
             res = ddb_client.put_item(
                 Item = bid.to_ddb_item(),
-                TableName="LimitOrderBookTest",
+                TableName="LimitOrderBook",
                 # conditionExpressions checks that the item we are looking at is the most recent version
                 # prevents race condition
                 ConditionExpression="order_time = :order_time",
@@ -97,19 +97,19 @@ def fill_order(best_matching, order):
                         "N" : bid.order_time
                     }
                 }
-            )   
+            )
         if filled == 0:
             break
     order.units = order.units - filled
     if order.units > 0:
         ddb_client.put_item(
             Item = order.to_ddb_item(),
-            TableName="LimitOrderBookTest"
+            TableName="LimitOrderBook"
         )
 
 def delete_table():
     items = ddb_client.scan(
-        TableName="LimitOrderBookTest",
+        TableName="LimitOrderBook",
         Select="ALL_ATTRIBUTES"
     )["Items"]
     for item in items:
@@ -123,19 +123,19 @@ def delete_table():
                     "N" : str(order_price)
                 }
             },
-            TableName="LimitOrderBookTest"
+            TableName="LimitOrderBook"
         )
 
 def scan_table():
     items = ddb_client.scan(
-        TableName="LimitOrderBookTest",
+        TableName="LimitOrderBook",
         Select="ALL_ATTRIBUTES"
     )["Items"]
     for item in items:
         print(item)
 
 
-# populate_table()
+populate_table()
 # delete_table()
 scan_table()
 

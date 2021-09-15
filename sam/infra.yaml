@@ -111,6 +111,8 @@ Resources:
             KeyType: HASH
           - AttributeName: SiSk
             KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
 
   TransactionTable:
     Type: AWS::DynamoDB::Table
@@ -125,54 +127,54 @@ Resources:
       AttributeDefinitions:
         - AttributeName: Pk
           AttributeType: S
-        - AttributeName: Sk
-          AttributeType: N
+        # - AttributeName: Sk
+        #   AttributeType: N
       KeySchema:
         - AttributeName: Pk
           KeyType: HASH
-        - AttributeName: Sk
-          KeyType: RANGE
+        # - AttributeName: Sk
+        #   KeyType: RANGE
 
-  LimitOrderBookTest:
-    Type: AWS::DynamoDB::Table
-    DeletionPolicy: Retain
-    Properties:
-      TableName: LimitOrderBookTest
-      BillingMode: PAY_PER_REQUEST
-      SSESpecification:
-        SSEEnabled: true
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      AttributeDefinitions:
-        - AttributeName: Pk
-          AttributeType: S
-        - AttributeName: Sk
-          AttributeType: N
-        - AttributeName: Gsi1Pk
-          AttributeType: S
-        - AttributeName: SiSk
-          AttributeType: S
-      KeySchema:
-        - AttributeName: Pk
-          KeyType: HASH
-        - AttributeName: Sk
-          KeyType: RANGE
-      GlobalSecondaryIndexes:
-        - IndexName: BestMatchingOffers
-          KeySchema:
-            - AttributeName: Gsi1Pk
-              KeyType: HASH
-            - AttributeName: Sk
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-      LocalSecondaryIndexes:
-        - IndexName: OrderIdUserIdQuery
-          KeySchema:
-          - AttributeName: Pk
-            KeyType: HASH
-          - AttributeName: SiSk
-            KeyType: RANGE
+  # LimitOrderBook:
+  #   Type: AWS::DynamoDB::Table
+  #   DeletionPolicy: Retain
+  #   Properties:
+  #     TableName: LimitOrderBook
+  #     BillingMode: PAY_PER_REQUEST
+  #     SSESpecification:
+  #       SSEEnabled: true
+  #     PointInTimeRecoverySpecification:
+  #       PointInTimeRecoveryEnabled: true
+  #     AttributeDefinitions:
+  #       - AttributeName: Pk
+  #         AttributeType: S
+  #       - AttributeName: Sk
+  #         AttributeType: N
+  #       - AttributeName: Gsi1Pk
+  #         AttributeType: S
+  #       - AttributeName: SiSk
+  #         AttributeType: S
+  #     KeySchema:
+  #       - AttributeName: Pk
+  #         KeyType: HASH
+  #       - AttributeName: Sk
+  #         KeyType: RANGE
+  #     GlobalSecondaryIndexes:
+  #       - IndexName: BestMatchingOffers
+  #         KeySchema:
+  #           - AttributeName: Gsi1Pk
+  #             KeyType: HASH
+  #           - AttributeName: Sk
+  #             KeyType: RANGE
+  #         Projection:
+  #           ProjectionType: ALL
+  #     LocalSecondaryIndexes:
+  #       - IndexName: OrderIdUserIdQuery
+  #         KeySchema:
+  #         - AttributeName: Pk
+  #           KeyType: HASH
+  #         - AttributeName: SiSk
+  #           KeyType: RANGE
 
 Outputs:
   ApiUrl:

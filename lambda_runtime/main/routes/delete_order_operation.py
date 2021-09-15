@@ -18,7 +18,7 @@ def deleteOrderOperation(event):
                     "N" : str(order_price)
                 }
             },
-            TableName="LimitOrderBookTest",
+            TableName="LimitOrderBook",
             ConditionExpression="filled = :filled",
             ExpressionAttributeValues={
                 ":filled" : {
